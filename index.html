@@ -215,6 +215,7 @@
     <script>
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
         import { getFirestore, collection, addDoc, setDoc, doc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import Papa from 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js';
     
         // Firebase configuration (Replace with your actual config)
         const firebaseConfig = {
@@ -246,7 +247,16 @@
                 const csvText = e.target.result;
                 Papa.parse(csvText, {
                     complete: async function(results) {
-                        await uploadCSVToFirestore(results.data);
+                        try {
+                            if (results.errors.length > 0) {
+                                alert('Error parsing CSV file.');
+                                return;
+                            }
+                            await uploadCSVToFirestore(results.data);
+                        } catch (err) {
+                            console.error('Error uploading CSV:', err);
+                            alert('Error uploading CSV.');
+                        }
                     }
                 });
             };
