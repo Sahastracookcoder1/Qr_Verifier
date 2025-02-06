@@ -214,129 +214,115 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-analytics.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js";
-        
-
+        import { getFirestore, collection, addDoc, setDoc, doc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    
         // Firebase configuration (Replace with your actual config)
         const firebaseConfig = {
-        apiKey: "AIzaSyBEP2HSM7tSm-ChDp5Rsyqw64utxrYznXk",
-        authDomain: "qr-code-verifier-5d54d.firebaseapp.com",
-        projectId: "qr-code-verifier-5d54d",
-        storageBucket: "qr-code-verifier-5d54d.firebasestorage.app",
-        messagingSenderId: "858242332473",
-        appId: "1:858242332473:web:0d08bfafcd94660dd6dae8",
-        measurementId: "G-WBBCXDGL94"
-      };
+            apiKey: "AIzaSyBEP2HSM7tSm-ChDp5Rsyqw64utxrYznXk",
+            authDomain: "qr-code-verifier-5d54d.firebaseapp.com",
+            projectId: "qr-code-verifier-5d54d",
+            storageBucket: "qr-code-verifier-5d54d.appspot.com",
+            messagingSenderId: "858242332473",
+            appId: "1:858242332473:web:0d08bfafcd94660dd6dae8",
+            measurementId: "G-WBBCXDGL94"
+        };
     
-        const storage = getStorage(app);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const logRef = collection(db, "scanLogs");
-        const analytics = getAnalytics(app);
+        const membersCollection = collection(db, "members");
+        const scanLogCollection = collection(db, "scanLogs");
     
         let members = new Map();
-        let qrCode = new QRCode(document.getElementById("qrcode"), "");
         let logContainer = document.getElementById('log');
-        let scrollBtn = document.getElementById('scrollBtn');
         let qrInput = document.getElementById('qrInput');
     
-        document.getElementById('csvFile').addEventListener('change', function(event) {
+        document.getElementById('csvFile').addEventListener('change', async function(event) {
             const file = event.target.files[0];
-            if (file) {
-                document.getElementById('fileName').innerText = `📁 File: ${file.name}`;
-                Papa.parse(file, {
-                    complete: function(results) {
-                        const data = results.data;
-                        if (data.length > 1) {
-                            const headers = data[0];
-                            const idIndex = headers.indexOf("membership_id");
-                            const statusIndex = headers.indexOf("card_status");
-                            const firstNameIndex = headers.indexOf("first_name");
-                            const lastNameIndex = headers.indexOf("last_name");
-                            
-                            if (idIndex === -1 || statusIndex === -1 || firstNameIndex === -1 || lastNameIndex === -1) {
-                                alert('Error: CSV must contain "membership_id", "card_status", "first_name", and "last_name" columns.');
-                                return;
-                            }
-                            
-                            for (let i = 1; i < data.length; i++) {
-                                let row = data[i];
-                                if (row.length > Math.max(idIndex, statusIndex, firstNameIndex, lastNameIndex)) {
-                                    members.set(String(row[idIndex]).trim(), {
-                                        id: String(row[idIndex]).trim(),
-                                        status: String(row[statusIndex]).trim(),
-                                        name: `${String(row[firstNameIndex]).trim()} ${String(row[lastNameIndex]).trim()}`
-                                    });
-                                }
-                            }
-                            alert('CSV File Loaded Successfully!');
-                        }
+            if (!file) return;
+            document.getElementById('fileName').innerText = `📁 File: ${file.name}`;
+    
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const csvText = e.target.result;
+                Papa.parse(csvText, {
+                    complete: async function(results) {
+                        await uploadCSVToFirestore(results.data);
                     }
                 });
-            }
+            };
+            reader.readAsText(file);
         });
     
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter' && qrInput.value.trim() !== '') {
-                processScannedCode(qrInput.value.trim());
-                qrInput.value = ''; 
-            }
-        });
+        async function uploadCSVToFirestore(data) {
+            if (data.length > 1) {
+                const headers = data[0];
+                const idIndex = headers.indexOf("membership_id");
+                const statusIndex = headers.indexOf("card_status");
+                const firstNameIndex = headers.indexOf("first_name");
+                const lastNameIndex = headers.indexOf("last_name");
     
-        function processScannedCode(scannedCode) {
-            const resultBox = document.getElementById('result');
-            if (members.has(scannedCode)) {
-                const member = members.get(scannedCode);
-                document.getElementById('details').innerText = `Membership ID: ${member.id} | Name: ${member.name} | Status: ${member.status}`;
-                
-                if (member.status.toLowerCase() === "failed") {
-                    resultBox.innerText = '❌ QR Code is Invalid!';
-                    resultBox.classList.remove('success');
-                    resultBox.classList.add('error');
-                    document.getElementById("qrcode").innerHTML = "";
+                if (idIndex === -1 || statusIndex === -1 || firstNameIndex === -1 || lastNameIndex === -1) {
+                    alert('Error: CSV must contain "membership_id", "card_status", "first_name", and "last_name" columns.');
                     return;
                 }
-                
-                resultBox.innerText = '✅ QR Code is Valid!';
-                resultBox.classList.remove('error');
-                resultBox.classList.add('success');
-                
-                document.getElementById("qrcode").innerHTML = ""; 
-                qrCode = new QRCode(document.getElementById("qrcode"), {
-                    text: member.id,
-                    width: 128,
-                    height: 128
-                });
     
-                logScan(member.id, member.name, member.status);
-            } else {
-                resultBox.innerText = '❌ QR Code is Invalid!';
-                resultBox.classList.remove('success');
-                resultBox.classList.add('error');
-                document.getElementById('details').innerText = '';
-                document.getElementById("qrcode").innerHTML = "";
+                for (let i = 1; i < data.length; i++) {
+                    let row = data[i];
+                    if (row.length > Math.max(idIndex, statusIndex, firstNameIndex, lastNameIndex)) {
+                        let member = {
+                            id: String(row[idIndex]).trim(),
+                            status: String(row[statusIndex]).trim(),
+                            firstName: String(row[firstNameIndex]).trim(),
+                            lastName: String(row[lastNameIndex]).trim()
+                        };
+                        await setDoc(doc(membersCollection, member.id), member);
+                    }
+                }
+                alert('CSV Data Uploaded to Firestore!');
+                loadCSVFromFirestore();
             }
         }
     
-        async function logScan(id, name, status) {
-            if (status.toLowerCase() === "failed") return;
-            
-            const timestamp = new Date().toLocaleString();
-            await addDoc(logRef, { id, name, status, timestamp });
+        async function loadCSVFromFirestore() {
+            members.clear();
+            const snapshot = await getDocs(membersCollection);
+            snapshot.forEach(doc => {
+                members.set(doc.id, doc.data());
+            });
+            console.log("Members loaded from Firestore:", members);
         }
     
-        onSnapshot(logRef, (snapshot) => {
-            logContainer.innerHTML = ""; 
-            snapshot.forEach(doc => {
-                const logEntry = document.createElement('div');
-                logEntry.classList.add('log-entry');
-                logEntry.innerHTML = `<strong>${doc.data().name} (ID: ${doc.data().id}, Status: ${doc.data().status})</strong><br><span class="timestamp">${doc.data().timestamp}</span>`;
-                logContainer.appendChild(logEntry);
-            });
-            logContainer.scrollTop = logContainer.scrollHeight;
+        qrInput.addEventListener("change", async function() {
+            const scannedID = qrInput.value.trim();
+            if (!scannedID) return;
+    
+            const member = members.get(scannedID);
+            if (member) {
+                if (member.status.toLowerCase() === "failed") {
+                    alert(`❌ Invalid QR Code!\nMember: ${member.firstName} ${member.lastName}`);
+                } else {
+                    alert(`✅ Valid QR Code!\nMember: ${member.firstName} ${member.lastName}`);
+                    await addDoc(scanLogCollection, {
+                        membership_id: scannedID,
+                        name: `${member.firstName} ${member.lastName}`,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } else {
+                alert("🚫 QR Code not found!");
+            }
+            qrInput.value = "";
         });
+    
+        onSnapshot(scanLogCollection, (snapshot) => {
+            logContainer.innerHTML = "";
+            snapshot.forEach(doc => {
+                let log = doc.data();
+                logContainer.innerHTML += `<p>${log.timestamp}: ${log.name} (${log.membership_id})</p>`;
+            });
+        });
+    
+        loadCSVFromFirestore();
     </script>
     
     </body>
