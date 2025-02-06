@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Verifier</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(45deg, #6a11cb, #2575fc);
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+            width: 90%;
+            max-width: 1000px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .left-box {
+            flex: 1;
+            max-width: 500px;
+            text-align: center;
+            margin-right: 20px;
+        }
+        .right-box {
+            flex: 1;
+            max-width: 500px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            margin-left: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 40px;
+        }
+        h2 {
+            font-size: 32px;
+            font-weight: 600;
+            background: linear-gradient(90deg, #ff7e5f, #feb47b);
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 20px;
+        }
+        .file-label {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #f39c12;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .file-label:hover {
+            background-color: #e67e22;
+        }
+        .qr-input-box {
+            width: 100%;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border: 2px solid #f39c12;
+            background: #fff;
+            color: #333;
+            font-size: 18px;
+            outline: none;
+            transition: border 0.3s ease;
+        }
+        .qr-input-box:focus {
+            border-color: #ff7e5f;
+        }
+        .result-box {
+            font-size: 18px;
+            font-weight: bold;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 10px;
+            background: #2ecc71;
+            color: #fff;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease;
+        }
+        .result-box.error {
+            background: #e74c3c;
+        }
+        .result-box.success {
+            background: #2ecc71;
+        }
+        #qrcode {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .member-details {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .file-name {
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #f39c12;
+        }
+        /* Log Box */
+        .log-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+            color: white;
+            max-height: 400px;
+            overflow-y: auto;
+            text-align: left;
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+        .log-entry {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            transition: background 0.3s ease;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .timestamp {
+            font-size: 12px;
+            color: #bbb;
+        }
+        /* Scroll to Bottom Button */
+        .scroll-btn {
+            position: fixed;
+            right: 30px;
+            bottom: 30px;
+            background: #ff7e5f;
+            color: white;
+            padding: 15px;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 20px;
+            display: none;
+        }
+        .scroll-btn:hover {
+            background: #e67e22;
+        }
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .right-box {
+                margin-left: 0;
+                margin-top: 20px;
+            }
+            .log-container {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-box">
+            <h2>The 900 Club</h2>
+        
+            <label for="csvFile" class="file-label">📂 Choose CSV File</label>
+            <input type="file" id="csvFile" accept=".csv" class="file-input" style="display:none;">
+            <p id="fileName" class="file-name"></p>
+        
+            <input type="text" id="qrInput" class="qr-input-box" placeholder="📸 Scan QR Code Here" autofocus>
+        
+            <div id="result" class="result-box"></div>
+            <p id="details" class="member-details"></p>
+            <div id="qrcode"></div>
+        </div>
+        
+        <div class="right-box">
+            <div class="log-container" id="log">
+                <h3>Scan Log</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll Button -->
+    <button class="scroll-btn" id="scrollBtn">&#8595;</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-analytics.js";
+        // Firebase configuration (Replace with your actual config)
+        const firebaseConfig = {
+        apiKey: "AIzaSyBEP2HSM7tSm-ChDp5Rsyqw64utxrYznXk",
+        authDomain: "qr-code-verifier-5d54d.firebaseapp.com",
+        projectId: "qr-code-verifier-5d54d",
+        storageBucket: "qr-code-verifier-5d54d.firebasestorage.app",
+        messagingSenderId: "858242332473",
+        appId: "1:858242332473:web:0d08bfafcd94660dd6dae8",
+        measurementId: "G-WBBCXDGL94"
+      };
+    
+    
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const logRef = collection(db, "scanLogs");
+        const analytics = getAnalytics(app);
+    
+        let members = new Map();
+        let qrCode = new QRCode(document.getElementById("qrcode"), "");
+        let logContainer = document.getElementById('log');
+        let scrollBtn = document.getElementById('scrollBtn');
+        let qrInput = document.getElementById('qrInput');
+    
+        document.getElementById('csvFile').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('fileName').innerText = `📁 File: ${file.name}`;
+                Papa.parse(file, {
+                    complete: function(results) {
+                        const data = results.data;
+                        if (data.length > 1) {
+                            const headers = data[0];
+                            const idIndex = headers.indexOf("membership_id");
+                            const statusIndex = headers.indexOf("card_status");
+                            const firstNameIndex = headers.indexOf("first_name");
+                            const lastNameIndex = headers.indexOf("last_name");
+                            
+                            if (idIndex === -1 || statusIndex === -1 || firstNameIndex === -1 || lastNameIndex === -1) {
+                                alert('Error: CSV must contain "membership_id", "card_status", "first_name", and "last_name" columns.');
+                                return;
+                            }
+                            
+                            for (let i = 1; i < data.length; i++) {
+                                let row = data[i];
+                                if (row.length > Math.max(idIndex, statusIndex, firstNameIndex, lastNameIndex)) {
+                                    members.set(String(row[idIndex]).trim(), {
+                                        id: String(row[idIndex]).trim(),
+                                        status: String(row[statusIndex]).trim(),
+                                        name: `${String(row[firstNameIndex]).trim()} ${String(row[lastNameIndex]).trim()}`
+                                    });
+                                }
+                            }
+                            alert('CSV File Loaded Successfully!');
+                        }
+                    }
+                });
+            }
+        });
+    
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && qrInput.value.trim() !== '') {
+                processScannedCode(qrInput.value.trim());
+                qrInput.value = ''; 
+            }
+        });
+    
+        function processScannedCode(scannedCode) {
+            const resultBox = document.getElementById('result');
+            if (members.has(scannedCode)) {
+                const member = members.get(scannedCode);
+                document.getElementById('details').innerText = `Membership ID: ${member.id} | Name: ${member.name} | Status: ${member.status}`;
+                
+                if (member.status.toLowerCase() === "failed") {
+                    resultBox.innerText = '❌ QR Code is Invalid!';
+                    resultBox.classList.remove('success');
+                    resultBox.classList.add('error');
+                    document.getElementById("qrcode").innerHTML = "";
+                    return;
+                }
+                
+                resultBox.innerText = '✅ QR Code is Valid!';
+                resultBox.classList.remove('error');
+                resultBox.classList.add('success');
+                
+                document.getElementById("qrcode").innerHTML = ""; 
+                qrCode = new QRCode(document.getElementById("qrcode"), {
+                    text: member.id,
+                    width: 128,
+                    height: 128
+                });
+    
+                logScan(member.id, member.name, member.status);
+            } else {
+                resultBox.innerText = '❌ QR Code is Invalid!';
+                resultBox.classList.remove('success');
+                resultBox.classList.add('error');
+                document.getElementById('details').innerText = '';
+                document.getElementById("qrcode").innerHTML = "";
+            }
+        }
+    
+        async function logScan(id, name, status) {
+            if (status.toLowerCase() === "failed") return;
+            
+            const timestamp = new Date().toLocaleString();
+            await addDoc(logRef, { id, name, status, timestamp });
+        }
+    
+        onSnapshot(logRef, (snapshot) => {
+            logContainer.innerHTML = ""; 
+            snapshot.forEach(doc => {
+                const logEntry = document.createElement('div');
+                logEntry.classList.add('log-entry');
+                logEntry.innerHTML = `<strong>${doc.data().name} (ID: ${doc.data().id}, Status: ${doc.data().status})</strong><br><span class="timestamp">${doc.data().timestamp}</span>`;
+                logContainer.appendChild(logEntry);
+            });
+            logContainer.scrollTop = logContainer.scrollHeight;
+        });
+    </script>
+    
+    </body>
+</html>
